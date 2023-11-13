@@ -16,6 +16,8 @@ public class ContainersController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
     [Route("start")]
     public async Task Start([FromBody] Image image)
     {
@@ -24,12 +26,16 @@ public class ContainersController : ControllerBase
     }
 
     [HttpDelete]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
     [Route("stop")]
     public async Task Stop([FromBody] Container container)
     {
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
     [Route("status")]
     public async Task<ContainerStatus> GetInfo([FromQuery] string name)
     {

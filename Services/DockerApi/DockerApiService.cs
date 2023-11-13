@@ -1,3 +1,4 @@
+using ContainerRunner.Exceptions;
 using ContainerRunner.Models;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -27,9 +28,26 @@ public class DockerApiService : IDockerApiService
 
     public async Task<bool> CreateContainer(Image image, CancellationToken cancellationToken)
     {
-        await FetchImage(image, cancellationToken);
+        try
+        {
+            await FetchImage(image, cancellationToken);
+        }
+        catch (DockerApiException e)
+        {
+            throw new ImageNotFoundException(e.Message);
+        }
+
         var containerId = await CreateContainerInternal(image, cancellationToken);
-        return await StartContainer(containerId, cancellationToken);
+
+        try
+        {
+            var started = await StartContainer(containerId, cancellationToken);
+            return started;
+        }
+        catch (DockerApiException e)
+        {
+            throw new ContainerNotFoundException(e.Message);
+        }
     }
 
 
@@ -80,14 +98,11 @@ public class DockerApiService : IDockerApiService
     {
         _logger.Log(LogLevel.Debug, $"Starting container {containerId}");
 
-        var started = await _client.Containers.StartContainerAsync(containerId, new ContainerStartParameters()
-            {
-                DetachKeys = "d"
-            },
+        var started = await _client.Containers.StartContainerAsync(containerId, new ContainerStartParameters(),
             cancellationToken);
-    
+
         _logger.Log(LogLevel.Debug, $"Container {containerId} started {started}");
-        
+
         return started;
     }
 }

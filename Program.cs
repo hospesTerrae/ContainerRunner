@@ -1,6 +1,5 @@
-using System.Text.Json;
 using ContainerRunner.DI;
-using ContainerRunner.Services.DockerApi;
+using ContainerRunner.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,16 +13,22 @@ builder.Services.AddSwaggerGen();
 #region DI
 
 builder.Services.RegisterContainerRunnerModule();
+
 #endregion
+
 #region Log
 
-builder.Logging.AddJsonConsole(options =>
-{
-    options.TimestampFormat = "HH:mm:ss";
-});
+builder.Logging.AddJsonConsole(options => { options.TimestampFormat = "HH:mm:ss"; });
+
 #endregion
 
 var app = builder.Build();
+
+#region Middleware
+
+app.UseMiddleware<UserExceptionHandlerMiddleware>();
+
+#endregion
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
