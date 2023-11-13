@@ -31,21 +31,25 @@ public class ContainersController : ControllerBase
     [Route("stop")]
     public async Task Stop([FromBody] Container container)
     {
+        await _dockerApiService.DeleteContainer(container, new CancellationToken());
     }
 
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(typeof(Reason), 404)]
     [Route("status")]
-    public async Task<ContainerStatus> GetInfo([FromQuery] string name)
+    public async Task<IEnumerable<ContainerStatus>> GetInfo([FromQuery] string name)
     {
         var containers = await _dockerApiService.GetContainers();
-        return new ContainerStatus
+        var statuses = containers.Select(c => new ContainerStatus()
         {
-            Image = name,
-            Status = "up",
-            ContainerId = name,
-            ContainerName = name
-        };
+            Image = c.Image,
+            Status = c.Status,
+            State = c.State,
+            ContainerId = c.ID,
+            ContainerName = c.Names.FirstOrDefault()
+        });
+
+        return statuses;
     }
 }

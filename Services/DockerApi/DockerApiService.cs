@@ -99,7 +99,7 @@ public class DockerApiService : IDockerApiService
         _logger.Log(LogLevel.Debug, $"Starting container {containerId}");
 
         var started = await _client.Containers.StartContainerAsync(containerId, new ContainerStartParameters(),
-            cancellationToken);
+            cancellationToken); 
 
         _logger.Log(LogLevel.Debug, $"Container {containerId} started {started}");
 
