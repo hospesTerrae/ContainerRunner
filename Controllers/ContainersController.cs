@@ -1,7 +1,8 @@
+using ContainerRunner.Enums;
 using ContainerRunner.Models;
 using ContainerRunner.Models.Exceptions;
-using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
+using ContainerRunner.Services.State;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContainerRunner.Controllers;
@@ -10,16 +11,16 @@ namespace ContainerRunner.Controllers;
 [Route("[controller]")]
 public class ContainersController : ControllerBase
 {
-    private readonly IDockerApiService _dockerApiService;
-    private IBackgroundQueue<Image> _upQueue;
-    private IBackgroundQueue<Container> _downQueue;
+    private readonly IBackgroundQueue<Image> _upQueue;
+    private readonly IBackgroundQueue<Container> _downQueue;
+    private readonly IContainerStateService _containerStateService;
 
-    public ContainersController(IDockerApiService dockerApiService, IBackgroundQueue<Image> upQueue,
-        IBackgroundQueue<Container> downQueue)
+    public ContainersController(IBackgroundQueue<Image> upQueue,
+        IBackgroundQueue<Container> downQueue, IContainerStateService containerStateService)
     {
-        _dockerApiService = dockerApiService;
         _upQueue = upQueue;
         _downQueue = downQueue;
+        _containerStateService = containerStateService;
     }
 
     [HttpPost]
@@ -42,21 +43,20 @@ public class ContainersController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(ContainerState),200)]
     [ProducesResponseType(typeof(Reason), 404)]
     [Route("status")]
-    public async Task<IEnumerable<ContainerStatus>> GetInfo([FromQuery] string name)
+    public async Task<ContainerState> GetInfo([FromQuery] string containerId)
     {
-        var containers = await _dockerApiService.GetContainers();
-        var statuses = containers.Select(c => new ContainerStatus
-        {
-            Image = c.Image,
-            Status = c.Status,
-            State = c.State,
-            ContainerId = c.ID,
-            ContainerName = c.Names.FirstOrDefault()
-        });
+        return _containerStateService.GetStatus(containerId);
+    }
 
-        return statuses;
+    [HttpGet]
+    [ProducesResponseType(typeof(Dictionary<string, ContainerState>),200)]
+    [ProducesResponseType(typeof(Reason), 404)]
+    [Route("statusAll")]
+    public async Task<Dictionary<string, ContainerState>> GetInfoAll()
+    {
+        return _containerStateService.GetAllStatuses();
     }
 }

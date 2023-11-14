@@ -24,6 +24,10 @@ public abstract class AbstractBackgroundQueue<T> : IBackgroundQueue<T>
         var workingItem = await _channel.Reader.ReadAsync(cancellationToken);
 
         _logger.Log(LogLevel.Debug, $"Dequeued {workingItem}");
+        UpdateStatusAfterDequeued(workingItem);
+
         return workingItem;
     }
+
+    public abstract void UpdateStatusAfterDequeued(T item);
 }

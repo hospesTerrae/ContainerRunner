@@ -1,7 +1,6 @@
 using ContainerRunner.Models;
 using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
-using Docker.DotNet;
 
 namespace ContainerRunner.Workers;
 
@@ -30,17 +29,15 @@ public class ContainerCreationBackgroundService : BackgroundService
     private async Task ProcessQueueAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
-        {
             try
             {
                 var image = await _queue.DequeueAsync(stoppingToken);
                 _logger.Log(LogLevel.Information, $"Starting container from image [{image.Fullname}]");
-                await _dockerApiService.CreateContainer(image, stoppingToken);
+                await _dockerApiService.RunContainerFromImage(image, stoppingToken);
             }
-            catch (DockerImageNotFoundException e)
+            catch (Exception e)
             {
                 _logger.Log(LogLevel.Error, e.Message);
             }
-        }
     }
 }
