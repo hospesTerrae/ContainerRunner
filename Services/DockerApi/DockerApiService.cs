@@ -49,14 +49,19 @@ public class DockerApiService : IDockerApiService
             throw new ContainerNotFoundException(e.Message);
         }
     }
-
-
+    
     public async Task<bool> DeleteContainer(Container container, CancellationToken cancellationToken)
     {
-        return await _client.Containers.StopContainerAsync(container.Id, new ContainerStopParameters
+        _logger.Log(LogLevel.Debug, $"Stopping container {container.Id}");
+        
+        var stoppingResult =  await _client.Containers.StopContainerAsync(container.Id, new ContainerStopParameters
         {
             WaitBeforeKillSeconds = 30
         }, cancellationToken);
+        
+        _logger.Log(LogLevel.Debug, $"Container [{container.Id}] was stopped [{stoppingResult}]");
+
+        return stoppingResult;
     }
 
     private async Task FetchImage(Image image, CancellationToken cancellationToken)
@@ -76,7 +81,7 @@ public class DockerApiService : IDockerApiService
 
     private void DownloadProgressChanged(object? sender, JSONMessage e)
     {
-        _logger.Log(LogLevel.Debug, $"Fetching status - {e.Status}");
+        _logger.Log(LogLevel.Trace, $"Fetching status - {e.Status}");
     }
 
     private async Task<string> CreateContainerInternal(Image image, CancellationToken cancellationToken)

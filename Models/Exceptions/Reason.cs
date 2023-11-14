@@ -1,4 +1,4 @@
-namespace ContainerRunner.Models;
+namespace ContainerRunner.Models.Exceptions;
 
 public class Reason
 {

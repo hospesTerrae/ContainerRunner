@@ -1,5 +1,7 @@
 using ContainerRunner.Models;
+using ContainerRunner.Models.Exceptions;
 using ContainerRunner.Services.DockerApi;
+using ContainerRunner.Services.Queue;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContainerRunner.Controllers;
@@ -8,11 +10,16 @@ namespace ContainerRunner.Controllers;
 [Route("[controller]")]
 public class ContainersController : ControllerBase
 {
-    private IDockerApiService _dockerApiService;
+    private readonly IDockerApiService _dockerApiService;
+    private IBackgroundQueue<Image> _upQueue;
+    private IBackgroundQueue<Container> _downQueue;
 
-    public ContainersController(IDockerApiService dockerApiService)
+    public ContainersController(IDockerApiService dockerApiService, IBackgroundQueue<Image> upQueue,
+        IBackgroundQueue<Container> downQueue)
     {
         _dockerApiService = dockerApiService;
+        _upQueue = upQueue;
+        _downQueue = downQueue;
     }
 
     [HttpPost]
@@ -22,7 +29,7 @@ public class ContainersController : ControllerBase
     public async Task Start([FromBody] Image image)
     {
         var cancellationToken = new CancellationToken();
-        await _dockerApiService.CreateContainer(image, cancellationToken);
+        _upQueue.Enqueue(image, cancellationToken);
     }
 
     [HttpDelete]
@@ -31,7 +38,7 @@ public class ContainersController : ControllerBase
     [Route("stop")]
     public async Task Stop([FromBody] Container container)
     {
-        await _dockerApiService.DeleteContainer(container, new CancellationToken());
+        await _downQueue.Enqueue(container, new CancellationToken());
     }
 
     [HttpGet]
@@ -41,7 +48,7 @@ public class ContainersController : ControllerBase
     public async Task<IEnumerable<ContainerStatus>> GetInfo([FromQuery] string name)
     {
         var containers = await _dockerApiService.GetContainers();
-        var statuses = containers.Select(c => new ContainerStatus()
+        var statuses = containers.Select(c => new ContainerStatus
         {
             Image = c.Image,
             Status = c.Status,
