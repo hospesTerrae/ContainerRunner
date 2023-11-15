@@ -1,4 +1,3 @@
-using ContainerRunner.Enums;
 using ContainerRunner.Models;
 using ContainerRunner.Models.Exceptions;
 using ContainerRunner.Services.Queue;
@@ -49,5 +48,22 @@ public class ContainersController : ControllerBase
     public async Task<Dictionary<string, string>> GetInfoAll()
     {
         return _containerStateService.GetAllStatuses();
+    }
+
+    [HttpDelete]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
+    [Route("removeAll")]
+    public async Task<List<string>> RemoveAll()
+    {
+        var containers = _containerStateService.GetAllStatuses().Keys.ToList();
+        var ct = new CancellationToken();
+
+        foreach (var container in containers)
+        {
+            await _downQueue.Enqueue(new Container() { Id = container }, ct);
+        }
+
+        return containers;
     }
 }

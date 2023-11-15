@@ -51,21 +51,14 @@ public class DownWorker : IContainerWorker<Container>
             async () =>
             {
                 await foreach (var container in _internalQueue.Reader.ReadAllAsync(cancellationToken))
-                    if (IsStillRunningContainer(container))
-                    {
-                        _logger.Log(LogLevel.Debug,
-                            $"Destroying processor [{_processorId} executing container [{container}]");
+                {
+                    _logger.Log(LogLevel.Debug,
+                        $"Destroying processor [{_processorId} executing container [{container}]");
 
-                        _stateService.UpdateStatus(container.Id, ContainerState.Stopping);
-                        _logger.Log(LogLevel.Information, $"Stopping container [{container.Id}]");
-                        await _dockerApiService.StopRunningContainer(container, cancellationToken);
-                    }
+                    _stateService.UpdateStatus(container.Id, ContainerState.Stopping);
+                    _logger.Log(LogLevel.Information, $"Stopping container [{container.Id}]");
+                    await _dockerApiService.StopRunningContainer(container, cancellationToken);
+                }
             }, cancellationToken);
-    }
-
-    private bool IsStillRunningContainer(Container container)
-    {
-        // preventing multiple stop requests processing via status
-        return _stateService.GetStatus(container.Id) == ContainerState.EnqueuedToStop;
     }
 }

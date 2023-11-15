@@ -23,6 +23,4 @@ public abstract class AbstractBackgroundQueue<T> : IBackgroundQueue<T>
     {
         return _channel.Reader.ReadAllAsync(cancellationToken);
     }
-
-    public abstract void UpdateStatusAfterDequeued(T item);
 }
