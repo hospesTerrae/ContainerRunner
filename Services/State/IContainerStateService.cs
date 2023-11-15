@@ -7,5 +7,5 @@ public interface IContainerStateService
     ContainerState GetStatus(string containerId);
     void UpdateStatus(string containerId, ContainerState newStatus);
 
-    Dictionary<string, ContainerState> GetAllStatuses();
+    Dictionary<string, string?> GetAllStatuses();
 }

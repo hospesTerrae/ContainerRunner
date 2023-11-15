@@ -16,12 +16,6 @@ builder.Services.RegisterContainerRunnerModule();
 
 #endregion
 
-#region Log
-
-builder.Logging.AddJsonConsole(options => { options.TimestampFormat = "HH:mm:ss"; });
-
-#endregion
-
 var app = builder.Build();
 
 #region Middleware

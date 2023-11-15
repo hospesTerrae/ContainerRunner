@@ -43,19 +43,10 @@ public class ContainersController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ContainerState),200)]
-    [ProducesResponseType(typeof(Reason), 404)]
-    [Route("status")]
-    public async Task<ContainerState> GetInfo([FromQuery] string containerId)
-    {
-        return _containerStateService.GetStatus(containerId);
-    }
-
-    [HttpGet]
-    [ProducesResponseType(typeof(Dictionary<string, ContainerState>),200)]
+    [ProducesResponseType(200)]
     [ProducesResponseType(typeof(Reason), 404)]
     [Route("statusAll")]
-    public async Task<Dictionary<string, ContainerState>> GetInfoAll()
+    public async Task<Dictionary<string, string>> GetInfoAll()
     {
         return _containerStateService.GetAllStatuses();
     }
