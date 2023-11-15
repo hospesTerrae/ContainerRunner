@@ -1,5 +1,4 @@
 using System.Net;
-using ContainerRunner.Models;
 using ContainerRunner.Models.Exceptions;
 
 namespace ContainerRunner.Middleware;
@@ -24,11 +23,9 @@ public abstract class AbstractExceptionHandlerMiddleware
         catch (Exception exception)
         {
             var (statusCode, message) = ConstructResponse(exception);
-            
-            context.Response.StatusCode = (int) statusCode;
-            await context.Response.WriteAsJsonAsync(message);
 
+            context.Response.StatusCode = (int)statusCode;
+            await context.Response.WriteAsJsonAsync(message);
         }
     }
-    
 }

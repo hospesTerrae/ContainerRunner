@@ -10,8 +10,8 @@ namespace ContainerRunner.Services.DockerApi;
 public class DockerApiService : IDockerApiService
 {
     private readonly DockerClient _client;
-    private readonly ILogger<DockerApiService> _logger;
     private readonly IContainerStateService _containerStateService;
+    private readonly ILogger<DockerApiService> _logger;
 
     public DockerApiService(ILogger<DockerApiService> logger, IContainerStateService containerStateService)
     {

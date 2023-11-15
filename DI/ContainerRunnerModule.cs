@@ -3,7 +3,6 @@ using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
 using ContainerRunner.Services.State;
 using ContainerRunner.Workers;
-using ContainerRunner.Workers.Background;
 
 namespace ContainerRunner.DI;
 
@@ -15,7 +14,7 @@ public static class ContainerRunnerModule
         services.AddSingleton<IContainerStateService, ContainerStateService>();
         services.AddSingleton<IBackgroundQueue<Image>, UpQueue>();
         services.AddSingleton<IBackgroundQueue<Container>, ShutdownQueue>();
-        
+
         services.AddHostedService<ContainerCreationBackgroundService>();
         services.AddHostedService<ContainerDestroyingBackgroundService>();
 

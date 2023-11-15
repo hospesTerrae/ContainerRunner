@@ -10,9 +10,9 @@ namespace ContainerRunner.Controllers;
 [Route("[controller]")]
 public class ContainersController : ControllerBase
 {
-    private readonly IBackgroundQueue<Image> _upQueue;
-    private readonly IBackgroundQueue<Container> _downQueue;
     private readonly IContainerStateService _containerStateService;
+    private readonly IBackgroundQueue<Container> _downQueue;
+    private readonly IBackgroundQueue<Image> _upQueue;
 
     public ContainersController(IBackgroundQueue<Image> upQueue,
         IBackgroundQueue<Container> downQueue, IContainerStateService containerStateService)
@@ -59,10 +59,7 @@ public class ContainersController : ControllerBase
         var containers = _containerStateService.GetAllStatuses().Keys.ToList();
         var ct = new CancellationToken();
 
-        foreach (var container in containers)
-        {
-            await _downQueue.Enqueue(new Container() { Id = container }, ct);
-        }
+        foreach (var container in containers) await _downQueue.Enqueue(new Container { Id = container }, ct);
 
         return containers;
     }
