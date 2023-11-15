@@ -3,6 +3,7 @@ using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
 using ContainerRunner.Services.State;
 using ContainerRunner.Workers;
+using ContainerRunner.Workers.Background;
 
 namespace ContainerRunner.DI;
 

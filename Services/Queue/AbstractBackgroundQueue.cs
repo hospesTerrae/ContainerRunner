@@ -19,14 +19,9 @@ public abstract class AbstractBackgroundQueue<T> : IBackgroundQueue<T>
         await _channel.Writer.WriteAsync(item, cancellationToken);
     }
 
-    public async ValueTask<T> DequeueAsync(CancellationToken cancellationToken)
+    public IAsyncEnumerable<T> DequeueAsync(CancellationToken cancellationToken)
     {
-        var workingItem = await _channel.Reader.ReadAsync(cancellationToken);
-
-        _logger.Log(LogLevel.Debug, $"Dequeued {workingItem}");
-        UpdateStatusAfterDequeued(workingItem);
-
-        return workingItem;
+        return _channel.Reader.ReadAllAsync(cancellationToken);
     }
 
     public abstract void UpdateStatusAfterDequeued(T item);

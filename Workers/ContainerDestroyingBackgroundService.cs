@@ -1,26 +1,30 @@
-using ContainerRunner.Enums;
 using ContainerRunner.Models;
 using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
 using ContainerRunner.Services.State;
+using ContainerRunner.Workers.Background;
 
 namespace ContainerRunner.Workers;
 
 public class ContainerDestroyingBackgroundService : BackgroundService
 {
-    private readonly IBackgroundQueue<Container> _queue;
     private readonly IDockerApiService _dockerApiService;
     private readonly ILogger<ContainerDestroyingBackgroundService> _logger;
     private readonly IContainerStateService _stateService;
+    private readonly int _parallelismDegree = 3;
+    private readonly IContainerWorker<Container>[] _workers;
 
-    public ContainerDestroyingBackgroundService(IBackgroundQueue<Container> queue,
+    private readonly IBackgroundQueue<Container> _queue;
+
+    public ContainerDestroyingBackgroundService(
         IDockerApiService dockerApiService, ILogger<ContainerDestroyingBackgroundService> logger,
-        IContainerStateService stateService)
+        IContainerStateService stateService, IBackgroundQueue<Container> queue)
     {
-        _queue = queue;
         _dockerApiService = dockerApiService;
         _logger = logger;
         _stateService = stateService;
+        _workers = new IContainerWorker<Container>[_parallelismDegree];
+        _queue = queue;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,15 +37,18 @@ public class ContainerDestroyingBackgroundService : BackgroundService
 
     private async Task ProcessQueueAsync(CancellationToken stoppingToken)
     {
+        var i = 0;
         while (!stoppingToken.IsCancellationRequested)
             try
             {
-                var container = await _queue.DequeueAsync(stoppingToken);
-                if (IsStillRunningContainer(container))
+                await foreach (var image in _queue.DequeueAsync(stoppingToken))
                 {
-                    _stateService.UpdateStatus(container.Id, ContainerState.Stopping);
-                    _logger.Log(LogLevel.Information, $"Stopping container [{container.Id}]");
-                    await _dockerApiService.StopRunningContainer(container, stoppingToken);
+                    i %= _parallelismDegree;
+
+                    var worker = GetOrCreateWorker(i);
+                    await worker.ScheduleWork(image);
+
+                    i++;
                 }
             }
             catch (Exception e)
@@ -50,9 +57,14 @@ public class ContainerDestroyingBackgroundService : BackgroundService
             }
     }
 
-    private bool IsStillRunningContainer(Container container)
+    private IContainerWorker<Container> GetOrCreateWorker(int index,
+        CancellationToken processingCancellationToken = default)
     {
-        // preventing multiple stop requests processing via status
-        return _stateService.GetStatus(container.Id) == ContainerState.EnqueuedToStop;
+        if (_workers[index] == null)
+            _workers[index] =
+                DownWorker.CreateAndStartProcessing(index, processingCancellationToken, _stateService,
+                    _dockerApiService, _logger);
+
+        return _workers[index];
     }
 }
