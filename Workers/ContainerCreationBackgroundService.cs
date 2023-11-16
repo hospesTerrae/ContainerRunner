@@ -9,22 +9,20 @@ namespace ContainerRunner.Workers;
 
 public class ContainerCreationBackgroundService : BackgroundService
 {
-    private readonly IDockerApiService _dockerApiService;
-
     private readonly IBackgroundQueue<Image> _internalQueue;
     private readonly ILogger<ContainerCreationBackgroundService> _logger;
     private readonly int _parallelismDegree = 3;
     private readonly IContainerWorker<Image>[] _workers;
+    private readonly IServiceProvider _services;
 
     public ContainerCreationBackgroundService(IOptions<CreationBackgroundServiceSettings> settings,
-        IDockerApiService dockerApiService,
-        ILogger<ContainerCreationBackgroundService> logger, IBackgroundQueue<Image> queue)
+        ILogger<ContainerCreationBackgroundService> logger, IBackgroundQueue<Image> queue, IServiceProvider services)
     {
         _parallelismDegree = settings.Value.ParallelismDegree;
-        _dockerApiService = dockerApiService;
         _logger = logger;
         _workers = new IContainerWorker<Image>[_parallelismDegree];
         _internalQueue = queue;
+        _services = services;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -63,7 +61,7 @@ public class ContainerCreationBackgroundService : BackgroundService
     {
         if (_workers[index] == null)
             _workers[index] =
-                UpWorker.CreateAndStartProcessing(index, processingCancellationToken, _dockerApiService, _logger);
+                UpWorker.CreateAndStartProcessing(index, processingCancellationToken, _services, _logger);
 
         return _workers[index];
     }

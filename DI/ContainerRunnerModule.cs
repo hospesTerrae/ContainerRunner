@@ -11,7 +11,7 @@ public static class ContainerRunnerModule
 {
     public static IServiceCollection RegisterContainerRunnerModule(this IServiceCollection services)
     {
-        services.AddSingleton<IDockerApiService, DockerApiService>();
+        services.AddScoped<IDockerApiService, DockerApiService>();
         services.AddSingleton<IContainerStateService, ContainerStateService>();
         services.AddSingleton<IBackgroundQueue<Image>, UpQueue>();
         services.AddSingleton<IBackgroundQueue<Container>, ShutdownQueue>();

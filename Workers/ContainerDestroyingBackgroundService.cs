@@ -17,17 +17,16 @@ public class ContainerDestroyingBackgroundService : BackgroundService
     private readonly IBackgroundQueue<Container> _queue;
     private readonly IContainerStateService _stateService;
     private readonly IContainerWorker<Container>[] _workers;
+    private readonly IServiceProvider _services;
 
-    public ContainerDestroyingBackgroundService(IOptions<DestroyingBackgroundServiceSettings> options,
-        IDockerApiService dockerApiService, ILogger<ContainerDestroyingBackgroundService> logger,
-        IContainerStateService stateService, IBackgroundQueue<Container> queue)
+    public ContainerDestroyingBackgroundService(IOptions<DestroyingBackgroundServiceSettings> options, ILogger<ContainerDestroyingBackgroundService> logger, IBackgroundQueue<Container> queue,
+        IServiceProvider services)
     {
         _parallelismDegree = options.Value.ParallelismDegree;
-        _dockerApiService = dockerApiService;
         _logger = logger;
-        _stateService = stateService;
         _workers = new IContainerWorker<Container>[_parallelismDegree];
         _queue = queue;
+        _services = services;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,8 +65,7 @@ public class ContainerDestroyingBackgroundService : BackgroundService
     {
         if (_workers[index] == null)
             _workers[index] =
-                DownWorker.CreateAndStartProcessing(index, processingCancellationToken, _stateService,
-                    _dockerApiService, _logger);
+                DownWorker.CreateAndStartProcessing(index, processingCancellationToken, _services, _logger);
 
         return _workers[index];
     }

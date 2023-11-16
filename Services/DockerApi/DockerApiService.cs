@@ -55,6 +55,7 @@ public class DockerApiService : IDockerApiService
     public async Task<bool> StopRunningContainerAsync(Container container, CancellationToken cancellationToken)
     {
         _logger.Log(LogLevel.Information, $"Stopping container {container.Id}");
+        _containerStateService.UpdateStatus(container.Id, ContainerState.Stopping);
 
         var stoppingResult = await _client.Containers.StopContainerAsync(container.Id, new ContainerStopParameters
         {

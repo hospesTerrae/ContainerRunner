@@ -6,8 +6,6 @@ namespace ContainerRunner.Workers.Background;
 
 public class UpWorker : IContainerWorker<Image>
 {
-    private readonly IDockerApiService _dockerApiService;
-
     private readonly Channel<Image> _internalQueue = Channel.CreateUnbounded<Image>(new UnboundedChannelOptions
     {
         SingleReader = true
@@ -16,12 +14,13 @@ public class UpWorker : IContainerWorker<Image>
     private readonly ILogger _logger;
     private readonly string _processorId;
     private Task? _processingTask;
+    private readonly IServiceProvider _services;
 
-    private UpWorker(int id, IDockerApiService dockerApiService, ILogger logger)
+    private UpWorker(int id, IServiceProvider services, ILogger logger)
     {
         _processorId = GetWorkerName(id);
-        _dockerApiService = dockerApiService;
         _logger = logger;
+        _services = services;
     }
 
     public async Task ScheduleWork(Image item)
@@ -36,10 +35,10 @@ public class UpWorker : IContainerWorker<Image>
     }
 
     public static IContainerWorker<Image> CreateAndStartProcessing(int id,
-        CancellationToken processingCancellationToken, IDockerApiService dockerApiService, ILogger logger)
+        CancellationToken processingCancellationToken, IServiceProvider services, ILogger logger)
     {
         logger.Log(LogLevel.Debug, $"Creating processor [{id}] instance created");
-        var instance = new UpWorker(id, dockerApiService, logger);
+        var instance = new UpWorker(id, services, logger);
         instance.StartProcessing(processingCancellationToken);
 
         return instance;
@@ -52,8 +51,12 @@ public class UpWorker : IContainerWorker<Image>
             {
                 await foreach (var image in _internalQueue.Reader.ReadAllAsync(cancellationToken))
                 {
-                    _logger.Log(LogLevel.Information, $"Creating container from image [{image.Fullname} by [{_processorId}]");
-                    await _dockerApiService.RunContainerFromImageAsync(image, cancellationToken);
+                    _logger.Log(LogLevel.Information,
+                        $"Creating container from image [{image.Fullname} by [{_processorId}]");
+
+                    using var scope = _services.CreateScope();
+                    var dockerApiScoped = scope.ServiceProvider.GetRequiredService<IDockerApiService>();
+                    await dockerApiScoped.RunContainerFromImageAsync(image, cancellationToken);
                 }
             }, cancellationToken);
     }
