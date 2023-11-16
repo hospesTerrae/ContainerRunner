@@ -19,6 +19,7 @@
 2. Number of worker threads for `creating worker` and `destroying worker` can be set in config.
 3. Round robin principle is used to split work across workers.
 3. Sync invalid http calls are handled by `user exceptions middleware`
+4. Only containers in `Running` state may be stopped to prevent double work.
 
 ![](arch.png)
 

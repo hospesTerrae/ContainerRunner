@@ -1,3 +1,4 @@
+using ContainerRunner.Enums;
 using ContainerRunner.Models;
 using ContainerRunner.Models.Exceptions;
 using ContainerRunner.Services.Queue;
@@ -37,7 +38,7 @@ public class ContainersController : ControllerBase
     [Route("statusAll")]
     public Dictionary<string, string> GetInfoAll()
     {
-        return _containerStateService.GetAllStatuses();
+        return _containerStateService.GetContainersStatuses();
     }
 
     [HttpDelete]
@@ -46,7 +47,12 @@ public class ContainersController : ControllerBase
     [Route("stop")]
     public async Task Stop([FromBody] Container container)
     {
-        await _downQueue.EnqueueAsync(container);
+        var status = _containerStateService.GetStatus(container.Id);
+        if (status == ContainerState.Running)
+        {
+            _containerStateService.UpdateStatus(container.Id, ContainerState.EnqueuedToStop);
+            await _downQueue.EnqueueAsync(container);
+        }
     }
 
     [HttpDelete]
@@ -55,10 +61,13 @@ public class ContainersController : ControllerBase
     [Route("stopAll")]
     public async Task<List<string>> StopAll()
     {
-        var containers = _containerStateService.GetAllStatuses().Keys.ToList();
-        var ct = new CancellationToken();
+        var containers = _containerStateService.GetContainersStatuses(ContainerState.Running).Keys.ToList();
 
-        foreach (var container in containers) await _downQueue.EnqueueAsync(new Container { Id = container }, ct);
+        foreach (var container in containers)
+        {
+            _containerStateService.UpdateStatus(container, ContainerState.EnqueuedToStop);
+            await _downQueue.EnqueueAsync(new Container { Id = container });
+        }
 
         return containers;
     }

@@ -29,9 +29,14 @@ public class ContainerStateService : IContainerStateService
         _dict[containerId] = newStatus;
     }
 
-    public Dictionary<string, string> GetAllStatuses()
+    public Dictionary<string, string> GetContainersStatuses(ContainerState? state = null)
     {
-        return _dict.ToDictionary(kvp => kvp.Key, kvp => Enum.GetName(typeof(ContainerState), kvp.Value),
+        if (state == null)
+            return _dict.ToDictionary(kvp => kvp.Key, kvp => Enum.GetName(typeof(ContainerState), kvp.Value),
+                _dict.Comparer);
+
+        return _dict.Where(pair => pair.Value == state).ToDictionary(kvp => kvp.Key,
+            kvp => Enum.GetName(typeof(ContainerState), kvp.Value),
             _dict.Comparer);
     }
 }
