@@ -1,4 +1,3 @@
-using ContainerRunner.Enums;
 using ContainerRunner.Models;
 using ContainerRunner.Models.Exceptions;
 using ContainerRunner.Services.Queue;
@@ -11,9 +10,9 @@ namespace ContainerRunner.Controllers;
 [Route("[controller]")]
 public class ContainersController : ControllerBase
 {
-    private readonly IBackgroundQueue<Image> _upQueue;
-    private readonly IBackgroundQueue<Container> _downQueue;
     private readonly IContainerStateService _containerStateService;
+    private readonly IBackgroundQueue<Container> _downQueue;
+    private readonly IBackgroundQueue<Image> _upQueue;
 
     public ContainersController(IBackgroundQueue<Image> upQueue,
         IBackgroundQueue<Container> downQueue, IContainerStateService containerStateService)
@@ -29,8 +28,16 @@ public class ContainersController : ControllerBase
     [Route("start")]
     public async Task Start([FromBody] Image image)
     {
-        var cancellationToken = new CancellationToken();
-        _upQueue.Enqueue(image, cancellationToken);
+        await _upQueue.EnqueueAsync(image);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
+    [Route("statusAll")]
+    public Dictionary<string, string> GetInfoAll()
+    {
+        return _containerStateService.GetAllStatuses();
     }
 
     [HttpDelete]
@@ -39,24 +46,20 @@ public class ContainersController : ControllerBase
     [Route("stop")]
     public async Task Stop([FromBody] Container container)
     {
-        await _downQueue.Enqueue(container, new CancellationToken());
+        await _downQueue.EnqueueAsync(container);
     }
 
-    [HttpGet]
-    [ProducesResponseType(typeof(ContainerState),200)]
+    [HttpDelete]
+    [ProducesResponseType(200)]
     [ProducesResponseType(typeof(Reason), 404)]
-    [Route("status")]
-    public async Task<ContainerState> GetInfo([FromQuery] string containerId)
+    [Route("stopAll")]
+    public async Task<List<string>> StopAll()
     {
-        return _containerStateService.GetStatus(containerId);
-    }
+        var containers = _containerStateService.GetAllStatuses().Keys.ToList();
+        var ct = new CancellationToken();
 
-    [HttpGet]
-    [ProducesResponseType(typeof(Dictionary<string, ContainerState>),200)]
-    [ProducesResponseType(typeof(Reason), 404)]
-    [Route("statusAll")]
-    public async Task<Dictionary<string, ContainerState>> GetInfoAll()
-    {
-        return _containerStateService.GetAllStatuses();
+        foreach (var container in containers) await _downQueue.EnqueueAsync(new Container { Id = container }, ct);
+
+        return containers;
     }
 }

@@ -2,6 +2,6 @@ namespace ContainerRunner.Services.Queue;
 
 public interface IBackgroundQueue<T>
 {
-    ValueTask Enqueue(T item, CancellationToken cancellationToken);
-    ValueTask<T> DequeueAsync(CancellationToken cancellationToken);
+    ValueTask EnqueueAsync(T item, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<T> DequeueAsync(CancellationToken cancellationToken);
 }

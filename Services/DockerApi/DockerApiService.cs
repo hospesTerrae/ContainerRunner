@@ -1,8 +1,10 @@
+using ContainerRunner.Configuration;
 using ContainerRunner.Exceptions;
 using ContainerRunner.Models;
 using ContainerRunner.Services.State;
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using Microsoft.Extensions.Options;
 using ContainerState = ContainerRunner.Enums.ContainerState;
 
 namespace ContainerRunner.Services.DockerApi;
@@ -10,34 +12,38 @@ namespace ContainerRunner.Services.DockerApi;
 public class DockerApiService : IDockerApiService
 {
     private readonly DockerClient _client;
-    private readonly ILogger<DockerApiService> _logger;
     private readonly IContainerStateService _containerStateService;
+    private readonly ILogger<DockerApiService> _logger;
 
-    public DockerApiService(ILogger<DockerApiService> logger, IContainerStateService containerStateService)
+    public DockerApiService(IOptions<DockerApiServiceSettings> options, ILogger<DockerApiService> logger,
+        IContainerStateService containerStateService)
     {
-        _client = new DockerClientConfiguration(new Uri("unix:///var/run/docker.sock")).CreateClient();
+        var uri = options.Value.SocketAddr;
+        _client = new DockerClientConfiguration(new Uri(uri)).CreateClient();
         _logger = logger;
         _containerStateService = containerStateService;
     }
 
-    public async Task<bool> RunContainerFromImage(Image image, CancellationToken cancellationToken)
+    public async Task<bool> RunContainerFromImageAsync(Image image, CancellationToken cancellationToken)
     {
+        _logger.Log(LogLevel.Information, $"Creating container from image [{image.Fullname}]");
         try
         {
-            await FetchImage(image, cancellationToken);
+            await FetchImageAsync(image, cancellationToken);
         }
         catch (DockerApiException e)
         {
             throw new ImageNotFoundException(e.Message);
         }
 
-        var containerId = await CreateContainerInternal(image, cancellationToken);
+        var containerId = await CreateContainerInternalAsync(image, cancellationToken);
         _containerStateService.UpdateStatus(containerId, ContainerState.Starting);
 
         try
         {
-            var started = await StartContainer(containerId, cancellationToken);
+            var started = await StartContainerAsync(containerId, cancellationToken);
             _containerStateService.UpdateStatus(containerId, ContainerState.Running);
+            _logger.Log(LogLevel.Information, $"Container created [{containerId}]");
             return started;
         }
         catch (DockerApiException e)
@@ -46,22 +52,22 @@ public class DockerApiService : IDockerApiService
         }
     }
 
-    public async Task<bool> StopRunningContainer(Container container, CancellationToken cancellationToken)
+    public async Task<bool> StopRunningContainerAsync(Container container, CancellationToken cancellationToken)
     {
-        _logger.Log(LogLevel.Debug, $"Stopping container {container.Id}");
+        _logger.Log(LogLevel.Information, $"Stopping container {container.Id}");
 
         var stoppingResult = await _client.Containers.StopContainerAsync(container.Id, new ContainerStopParameters
         {
             WaitBeforeKillSeconds = 30
         }, cancellationToken);
 
-        _logger.Log(LogLevel.Debug, $"Container [{container.Id}] was stopped [{stoppingResult}]");
+        _logger.Log(LogLevel.Information, $"Container [{container.Id}] was stopped [{stoppingResult}]");
         _containerStateService.UpdateStatus(container.Id, ContainerState.Stopped);
 
         return stoppingResult;
     }
 
-    private async Task FetchImage(Image image, CancellationToken cancellationToken)
+    private async Task FetchImageAsync(Image image, CancellationToken cancellationToken)
     {
         _logger.Log(LogLevel.Debug, $"Fetching [{image.Fullname}]");
 
@@ -81,7 +87,7 @@ public class DockerApiService : IDockerApiService
         _logger.Log(LogLevel.Trace, $"Fetching status - {e.Status}");
     }
 
-    private async Task<string> CreateContainerInternal(Image image, CancellationToken cancellationToken)
+    private async Task<string> CreateContainerInternalAsync(Image image, CancellationToken cancellationToken)
     {
         _logger.Log(LogLevel.Debug, $"Creating container [{image.Fullname}]");
 
@@ -96,7 +102,7 @@ public class DockerApiService : IDockerApiService
         return container.ID;
     }
 
-    private async Task<bool> StartContainer(string containerId, CancellationToken cancellationToken)
+    private async Task<bool> StartContainerAsync(string containerId, CancellationToken cancellationToken)
     {
         _logger.Log(LogLevel.Debug, $"Starting container {containerId}");
 

@@ -1,21 +1,30 @@
+using ContainerRunner.Configuration;
 using ContainerRunner.Models;
 using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
+using ContainerRunner.Workers.Background;
+using Microsoft.Extensions.Options;
 
 namespace ContainerRunner.Workers;
 
 public class ContainerCreationBackgroundService : BackgroundService
 {
-    private readonly IBackgroundQueue<Image> _queue;
     private readonly IDockerApiService _dockerApiService;
-    private readonly ILogger<ContainerCreationBackgroundService> _logger;
 
-    public ContainerCreationBackgroundService(IBackgroundQueue<Image> queue,
-        IDockerApiService dockerApiService, ILogger<ContainerCreationBackgroundService> logger)
+    private readonly IBackgroundQueue<Image> _internalQueue;
+    private readonly ILogger<ContainerCreationBackgroundService> _logger;
+    private readonly int _parallelismDegree = 3;
+    private readonly IContainerWorker<Image>[] _workers;
+
+    public ContainerCreationBackgroundService(IOptions<CreationBackgroundServiceSettings> settings,
+        IDockerApiService dockerApiService,
+        ILogger<ContainerCreationBackgroundService> logger, IBackgroundQueue<Image> queue)
     {
-        _queue = queue;
+        _parallelismDegree = settings.Value.ParallelismDegree;
         _dockerApiService = dockerApiService;
         _logger = logger;
+        _workers = new IContainerWorker<Image>[_parallelismDegree];
+        _internalQueue = queue;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -28,16 +37,34 @@ public class ContainerCreationBackgroundService : BackgroundService
 
     private async Task ProcessQueueAsync(CancellationToken stoppingToken)
     {
+        var i = 0;
         while (!stoppingToken.IsCancellationRequested)
             try
             {
-                var image = await _queue.DequeueAsync(stoppingToken);
-                _logger.Log(LogLevel.Information, $"Starting container from image [{image.Fullname}]");
-                await _dockerApiService.RunContainerFromImage(image, stoppingToken);
+                await foreach (var image in _internalQueue.DequeueAsync(stoppingToken))
+                {
+                    _logger.Log(LogLevel.Information, $"Dequeued {image.Fullname} to start");
+                    i %= _parallelismDegree; // round robin
+
+                    var worker = GetOrCreateWorker(i, stoppingToken);
+                    await worker.ScheduleWork(image);
+
+                    i++;
+                }
             }
             catch (Exception e)
             {
                 _logger.Log(LogLevel.Error, e.Message);
             }
+    }
+
+    private IContainerWorker<Image> GetOrCreateWorker(int index,
+        CancellationToken processingCancellationToken = default)
+    {
+        if (_workers[index] == null)
+            _workers[index] =
+                UpWorker.CreateAndStartProcessing(index, processingCancellationToken, _dockerApiService, _logger);
+
+        return _workers[index];
     }
 }

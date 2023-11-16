@@ -10,9 +10,4 @@ public class UpQueue : AbstractBackgroundQueue<Image>
     public UpQueue(ILogger<UpQueue> logger) : base(_options, logger)
     {
     }
-
-    public override void UpdateStatusAfterDequeued(Image item)
-    {
-        // skip because container is not created yet, not id
-    }
 }
