@@ -25,6 +25,8 @@
 
 # Assumptions
 1. Config isn't validated. 
+2. Docker images and their tags are not validated. This means app won't run container if image is invalid (e.g doesn't exist).
+3. Docker socket is set up in config, basically for Linux/Mac systems.
 
 # Apology
 Code isn't covered with tests “ヽ(´▽｀)ノ”
