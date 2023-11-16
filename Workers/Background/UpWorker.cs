@@ -6,8 +6,6 @@ namespace ContainerRunner.Workers.Background;
 
 public class UpWorker : IContainerWorker<Image>
 {
-    private readonly int _processorId;
-    private Task? _processingTask;
     private readonly IDockerApiService _dockerApiService;
 
     private readonly Channel<Image> _internalQueue = Channel.CreateUnbounded<Image>(new UnboundedChannelOptions
@@ -16,18 +14,25 @@ public class UpWorker : IContainerWorker<Image>
     });
 
     private readonly ILogger _logger;
+    private readonly string _processorId;
+    private Task? _processingTask;
 
     private UpWorker(int id, IDockerApiService dockerApiService, ILogger logger)
     {
-        _processorId = id;
+        _processorId = GetWorkerName(id);
         _dockerApiService = dockerApiService;
         _logger = logger;
     }
 
     public async Task ScheduleWork(Image item)
     {
-        _logger.Log(LogLevel.Debug, $"Creating processor [{_processorId} queued image [{item.Fullname}]");
+        _logger.Log(LogLevel.Debug, $"Schedule: [{item.Fullname}] is queued to [{_processorId}]");
         await _internalQueue.Writer.WriteAsync(item);
+    }
+
+    public string GetWorkerName(int id)
+    {
+        return $"up-{id}";
     }
 
     public static IContainerWorker<Image> CreateAndStartProcessing(int id,
@@ -47,9 +52,8 @@ public class UpWorker : IContainerWorker<Image>
             {
                 await foreach (var image in _internalQueue.Reader.ReadAllAsync(cancellationToken))
                 {
-                    _logger.Log(LogLevel.Debug,
-                        $"Creating processor [{_processorId} executing image [{image.Fullname}]");
-                    await _dockerApiService.RunContainerFromImage(image, cancellationToken);
+                    _logger.Log(LogLevel.Information, $"Creating container from image [{image.Fullname} by [{_processorId}]");
+                    await _dockerApiService.RunContainerFromImageAsync(image, cancellationToken);
                 }
             }, cancellationToken);
     }

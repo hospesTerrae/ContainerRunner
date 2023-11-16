@@ -13,9 +13,9 @@ public abstract class AbstractBackgroundQueue<T> : IBackgroundQueue<T>
         _logger = logger;
     }
 
-    public async ValueTask Enqueue(T item, CancellationToken cancellationToken)
+    public async ValueTask EnqueueAsync(T item, CancellationToken cancellationToken)
     {
-        _logger.Log(LogLevel.Debug, $"Queued {item}");
+        _logger.Log(LogLevel.Information, $"Queued {item}");
         await _channel.Writer.WriteAsync(item, cancellationToken);
     }
 

@@ -8,21 +8,22 @@ namespace ContainerRunner.Workers.Background;
 
 public class DownWorker : IContainerWorker<Container>
 {
-    private readonly IContainerStateService _stateService;
     private readonly IDockerApiService _dockerApiService;
-    private readonly ILogger _logger;
-    private Task? _processingTask;
-    private readonly int _processorId;
 
     private readonly Channel<Container> _internalQueue = Channel.CreateUnbounded<Container>(new UnboundedChannelOptions
     {
         SingleReader = true
     });
 
+    private readonly ILogger _logger;
+    private readonly string _processorId;
+    private readonly IContainerStateService _stateService;
+    private Task? _processingTask;
+
     private DownWorker(int processorId, IContainerStateService stateService, IDockerApiService dockerApiService,
         ILogger logger)
     {
-        _processorId = processorId;
+        _processorId = GetWorkerName(processorId);
         _stateService = stateService;
         _dockerApiService = dockerApiService;
         _logger = logger;
@@ -30,8 +31,13 @@ public class DownWorker : IContainerWorker<Container>
 
     public async Task ScheduleWork(Container item)
     {
-        _logger.Log(LogLevel.Debug, $"Destroying processor [{_processorId} queued container [{item.Id}]");
+        _logger.Log(LogLevel.Debug, $"Schedule: [{item.Id}] is queued to [{_processorId}]");
         await _internalQueue.Writer.WriteAsync(item);
+    }
+
+    public string GetWorkerName(int id)
+    {
+        return $"down-{id}";
     }
 
     public static IContainerWorker<Container> CreateAndStartProcessing(int id,
@@ -52,12 +58,9 @@ public class DownWorker : IContainerWorker<Container>
             {
                 await foreach (var container in _internalQueue.Reader.ReadAllAsync(cancellationToken))
                 {
-                    _logger.Log(LogLevel.Debug,
-                        $"Destroying processor [{_processorId} executing container [{container}]");
-
                     _stateService.UpdateStatus(container.Id, ContainerState.Stopping);
-                    _logger.Log(LogLevel.Information, $"Stopping container [{container.Id}]");
-                    await _dockerApiService.StopRunningContainer(container, cancellationToken);
+                    _logger.Log(LogLevel.Information, $"Stopping container [{container.Id} by [{_processorId}]");
+                    await _dockerApiService.StopRunningContainerAsync(container, cancellationToken);
                 }
             }, cancellationToken);
     }

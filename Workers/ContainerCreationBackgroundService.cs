@@ -1,22 +1,26 @@
+using ContainerRunner.Configuration;
 using ContainerRunner.Models;
 using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
 using ContainerRunner.Workers.Background;
+using Microsoft.Extensions.Options;
 
 namespace ContainerRunner.Workers;
 
 public class ContainerCreationBackgroundService : BackgroundService
 {
     private readonly IDockerApiService _dockerApiService;
-    private readonly ILogger<ContainerCreationBackgroundService> _logger;
-    private readonly IContainerWorker<Image>[] _workers;
-    private readonly int _parallelismDegree = 3;
 
     private readonly IBackgroundQueue<Image> _internalQueue;
+    private readonly ILogger<ContainerCreationBackgroundService> _logger;
+    private readonly int _parallelismDegree = 3;
+    private readonly IContainerWorker<Image>[] _workers;
 
-    public ContainerCreationBackgroundService(IDockerApiService dockerApiService,
+    public ContainerCreationBackgroundService(IOptions<CreationBackgroundServiceSettings> settings,
+        IDockerApiService dockerApiService,
         ILogger<ContainerCreationBackgroundService> logger, IBackgroundQueue<Image> queue)
     {
+        _parallelismDegree = settings.Value.ParallelismDegree;
         _dockerApiService = dockerApiService;
         _logger = logger;
         _workers = new IContainerWorker<Image>[_parallelismDegree];
@@ -39,9 +43,10 @@ public class ContainerCreationBackgroundService : BackgroundService
             {
                 await foreach (var image in _internalQueue.DequeueAsync(stoppingToken))
                 {
-                    i %= _parallelismDegree;
+                    _logger.Log(LogLevel.Information, $"Dequeued {image.Fullname} to start");
+                    i %= _parallelismDegree; // round robin
 
-                    var worker = GetOrCreateWorker(i);
+                    var worker = GetOrCreateWorker(i, stoppingToken);
                     await worker.ScheduleWork(image);
 
                     i++;

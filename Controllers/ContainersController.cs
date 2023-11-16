@@ -28,17 +28,7 @@ public class ContainersController : ControllerBase
     [Route("start")]
     public async Task Start([FromBody] Image image)
     {
-        var cancellationToken = new CancellationToken();
-        _upQueue.Enqueue(image, cancellationToken);
-    }
-
-    [HttpDelete]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(typeof(Reason), 404)]
-    [Route("stop")]
-    public async Task Stop([FromBody] Container container)
-    {
-        await _downQueue.Enqueue(container, new CancellationToken());
+        await _upQueue.EnqueueAsync(image, default);
     }
 
     [HttpGet]
@@ -53,13 +43,22 @@ public class ContainersController : ControllerBase
     [HttpDelete]
     [ProducesResponseType(200)]
     [ProducesResponseType(typeof(Reason), 404)]
-    [Route("removeAll")]
-    public async Task<List<string>> RemoveAll()
+    [Route("stop")]
+    public async Task Stop([FromBody] Container container)
+    {
+        await _downQueue.EnqueueAsync(container, new CancellationToken());
+    }
+
+    [HttpDelete]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(Reason), 404)]
+    [Route("stopAll")]
+    public async Task<List<string>> stopAll()
     {
         var containers = _containerStateService.GetAllStatuses().Keys.ToList();
         var ct = new CancellationToken();
 
-        foreach (var container in containers) await _downQueue.Enqueue(new Container { Id = container }, ct);
+        foreach (var container in containers) await _downQueue.EnqueueAsync(new Container { Id = container }, ct);
 
         return containers;
     }

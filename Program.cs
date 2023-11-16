@@ -12,7 +12,9 @@ builder.Services.AddSwaggerGen();
 
 #region DI
 
-builder.Services.RegisterContainerRunnerModule();
+builder.Services
+    .RegisterConfiguration(builder.Configuration)
+    .RegisterContainerRunnerModule();
 
 #endregion
 

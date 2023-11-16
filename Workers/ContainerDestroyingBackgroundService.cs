@@ -1,8 +1,10 @@
+using ContainerRunner.Configuration;
 using ContainerRunner.Models;
 using ContainerRunner.Services.DockerApi;
 using ContainerRunner.Services.Queue;
 using ContainerRunner.Services.State;
 using ContainerRunner.Workers.Background;
+using Microsoft.Extensions.Options;
 
 namespace ContainerRunner.Workers;
 
@@ -10,16 +12,17 @@ public class ContainerDestroyingBackgroundService : BackgroundService
 {
     private readonly IDockerApiService _dockerApiService;
     private readonly ILogger<ContainerDestroyingBackgroundService> _logger;
-    private readonly IContainerStateService _stateService;
     private readonly int _parallelismDegree = 3;
-    private readonly IContainerWorker<Container>[] _workers;
 
     private readonly IBackgroundQueue<Container> _queue;
+    private readonly IContainerStateService _stateService;
+    private readonly IContainerWorker<Container>[] _workers;
 
-    public ContainerDestroyingBackgroundService(
+    public ContainerDestroyingBackgroundService(IOptions<DestroyingBackgroundServiceSettings> options,
         IDockerApiService dockerApiService, ILogger<ContainerDestroyingBackgroundService> logger,
         IContainerStateService stateService, IBackgroundQueue<Container> queue)
     {
+        _parallelismDegree = options.Value.ParallelismDegree;
         _dockerApiService = dockerApiService;
         _logger = logger;
         _stateService = stateService;
@@ -41,12 +44,13 @@ public class ContainerDestroyingBackgroundService : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
             try
             {
-                await foreach (var image in _queue.DequeueAsync(stoppingToken))
+                await foreach (var container in _queue.DequeueAsync(stoppingToken))
                 {
-                    i %= _parallelismDegree;
+                    _logger.Log(LogLevel.Information, $"Dequeued {container.Id} to stop");
+                    i %= _parallelismDegree; // round robin
 
                     var worker = GetOrCreateWorker(i);
-                    await worker.ScheduleWork(image);
+                    await worker.ScheduleWork(container);
 
                     i++;
                 }
