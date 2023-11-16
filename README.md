@@ -21,8 +21,10 @@
 3. Sync invalid http calls are handled by `user exceptions middleware`
 4. Only containers in `Running` state may be stopped to prevent double work.
 
-![](arch.png)
+![](architecture.png)
 
 # Assumptions
 1. Config isn't validated. 
-2. Code isn't covered with tests “ヽ(´▽｀)ノ”
+
+# Apology
+Code isn't covered with tests “ヽ(´▽｀)ノ”
